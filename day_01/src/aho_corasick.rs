@@ -26,6 +26,11 @@ impl Node {
     }
 }
 
+pub struct Match {
+    pub position: usize,
+    pub word: String
+}
+
 pub struct AhoCorasick {
     root: Rc<RefCell<Node>>
 }
@@ -111,26 +116,43 @@ impl AhoCorasick {
         }
     }
 
-    pub fn match_first(&self, text: &str) -> Option<(usize, String)> {
-        let chars = text.chars();
-        let mut node = self.root.clone();
+    pub fn find_matches(&self, word: &str) -> impl Iterator<Item=Match> {
+        Iter {
+            current_node: self.root.clone(),
+            word: word.chars().collect::<Vec<char>>(),
+            position: 0
+        }
+    }
+}
 
-        for (i, c) in chars.enumerate() {
-            while node.borrow().character != 0 as char && !node.borrow().children.contains_key(&c) {
-                let tmp = node.borrow().suffix.clone().unwrap();
-                node = tmp;
+struct Iter {
+    current_node: Rc<RefCell<Node>>,
+    word: Vec<char>,
+    position: usize
+}
+
+impl Iterator for Iter {
+    type Item = Match;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for i in self.position..self.word.len() {
+            while self.current_node.borrow().character != 0 as char && !self.current_node.borrow().children.contains_key(&self.word[i]) {
+                let tmp = self.current_node.borrow().suffix.clone().unwrap();
+                self.current_node = tmp;
             }
 
-            let tmp = node.borrow().children.get(&c).unwrap_or(&node).clone();
-            node = tmp;
+            let tmp = self.current_node.borrow().children.get(&self.word[i]).unwrap_or(&self.current_node).clone();
+            self.current_node = tmp;
 
-            if node.borrow().in_dict {
-                let word = node.borrow().word.clone().unwrap();
+            if self.current_node.borrow().in_dict {
+                let word = self.current_node.borrow().word.clone().unwrap();
                 let start = i - (word.len() - 1);
-                return Some((start, word));
+                self.position = i + 1;
+                return Some(Match { position: start, word });
             }
         }
 
+        self.position = self.word.len();
         return None;
     }
 }
