@@ -1,3 +1,5 @@
+use runner::get_input;
+
 use day_01;
 use day_02;
 use day_03;
@@ -25,7 +27,6 @@ use day_24;
 use day_25;
 
 use std::env;
-use std::fs;
 
 const SOLVE_FUNCTIONS: [fn(String); 25] = [
      day_01::solve,
@@ -73,9 +74,4 @@ fn main() {
         }
         Err(_) => println!("DAY must be an integer")
     }
-}
-
-pub fn get_input(day: usize) -> String {
-    fs::read_to_string(format!("input/day_{:0>2}.txt", day))
-        .expect(&format!("Unable to read input for day {}", day))
 }
