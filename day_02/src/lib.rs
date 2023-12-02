@@ -8,6 +8,7 @@ pub fn solve(input: String) {
     };
 
     println!("{}", games.iter().filter_map(part1).sum::<usize>());
+    println!("{}", games.iter().map(part2).sum::<usize>());
 }
 
 fn part1(game: &Game) -> Option<usize> {
@@ -16,6 +17,15 @@ fn part1(game: &Game) -> Option<usize> {
     } else {
         None
     }
+}
+
+fn part2(game: &Game) -> usize {
+    let (minr, ming, minb) = game.cube_sets.iter()
+        .map(|c| (c.red, c.green, c.blue))
+        .reduce(|(accr, accg, accb), (r, g, b)| (accr.max(r), accg.max(g), accb.max(b)))
+        .unwrap();
+
+    minr * ming * minb
 }
 
 struct CubeSet {
