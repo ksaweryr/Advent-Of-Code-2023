@@ -1,42 +1,52 @@
 use anyhow::Error;
 use std::collections::HashSet;
+use std::iter::repeat;
 use std::str::FromStr;
 
 pub fn solve(input: String) {
     let cards = input.lines()
-        .map(|s| s.parse::<Card>())
-        .collect::<Result<Vec<Card>, _>>()
+        .map(number_of_matches)
+        .collect::<Result<Vec<usize>, _>>()
         .expect("Couldn't parse input file");
 
-    let part1_result = cards.iter()
-        .map(|c| c.winning_numbers.intersection(&c.your_numbers).count().checked_sub(1).map(|x| 1 << x).unwrap_or(0))
-        .sum::<usize>();
-
-    println!("{}", part1_result);
+    println!("{}", part1(&cards));
+    println!("{}", part2(&cards));
 }
 
-struct Card {
-    winning_numbers: HashSet<usize>,
-    your_numbers: HashSet<usize>
+fn part1(values: &Vec<usize>) -> usize {
+    values.iter()
+        .map(|n| n.checked_sub(1).map(|x| 1 << x).unwrap_or(0))
+        .sum()
 }
 
-impl FromStr for Card {
-    type Err = Error;
+fn part2(values: &Vec<usize>) -> usize {
+    let mut counts: Vec<usize> = repeat(1).take(values.len()).collect();
+    let mut result = 0;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let [winning_numbers, your_numbers]: [&str; 2] = s.split(": ")
-            .last()
-            .ok_or(Error::msg("Invalid card format"))?
-            .split(" | ")
-            .collect::<Vec<&str>>()
-            .try_into()
-            .map_err(|_| Error::msg("Invalid card format"))?;
+    for (i, v) in values.iter().enumerate() {
+        result += counts[i];
 
-        let winning_numbers = parse_number_set(winning_numbers)?;
-        let your_numbers = parse_number_set(your_numbers)?;
-
-        Ok(Card { winning_numbers, your_numbers })
+        for j in i+1..((i + 1 + v).min(counts.len())) {
+            counts[j] += counts[i];
+        }
     }
+
+    result
+}
+
+fn number_of_matches(s: &str) -> Result<usize, Error> {
+    let [winning_numbers, your_numbers]: [&str; 2] = s.split(": ")
+        .last()
+        .ok_or(Error::msg("Invalid card format"))?
+        .split(" | ")
+        .collect::<Vec<&str>>()
+        .try_into()
+        .map_err(|_| Error::msg("Invalid card format"))?;
+
+    let winning_numbers = parse_number_set(winning_numbers)?;
+    let your_numbers = parse_number_set(your_numbers)?;
+
+    Ok(winning_numbers.intersection(&your_numbers).count())
 }
 
 fn parse_number_set(s: &str) -> Result<HashSet<usize>, <usize as FromStr>::Err> {
