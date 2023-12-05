@@ -22,6 +22,7 @@ done
 cat > .gitignore <<EOF
 /input
 /target
+/.cargo/config.toml
 EOF
 
 cat > Cargo.toml <<EOF
