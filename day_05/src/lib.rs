@@ -211,7 +211,7 @@ impl RangeMap {
 
                 match partial_result.merged {
                     Some(r) => {
-                        if(r.length != 0) {
+                        if r.length != 0 {
                             result.push(r);
                             partial_result.unused_sources.for_each(|r| queue.push_back(r));
                             found = true;
@@ -250,13 +250,13 @@ mod test {
 
     #[test]
     fn example_part1() {
-        let (seeds, maps) = parse_input(example_input.to_owned());
+        let (seeds, maps) = parse_input(EXAMPLE_INPUT.to_owned());
         assert_eq!(part1(&seeds, &maps), 35);
     }
 
     #[test]
     fn example_part2() {
-        let (seeds, maps) = parse_input(example_input.to_owned());
+        let (seeds, maps) = parse_input(EXAMPLE_INPUT.to_owned());
         assert_eq!(part2(&seeds, &maps), 46);
     }
 
@@ -324,7 +324,7 @@ mod test {
         assert_eq!(map3, expected);
     }
 
-    const example_input: &str = "seeds: 79 14 55 13
+    const EXAMPLE_INPUT: &str = "seeds: 79 14 55 13
 
 seed-to-soil map:
 50 98 2
