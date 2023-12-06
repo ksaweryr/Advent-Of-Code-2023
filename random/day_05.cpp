@@ -56,6 +56,9 @@ std::istream& operator>>(std::istream& is, RangeMap& map) {
 }
 
 std::string source = R"(
+#pragma OPENCL EXTENSION cl_khr_int64_base_atomics : enable
+#pragma OPENCL EXTENSION cl_khr_int64_extended_atomics : enable
+
 typedef struct __attribute__((packed)) r {
     long destination;
     long source;
@@ -67,8 +70,12 @@ typedef struct __attribute__((packed)) rrm {
     long length;
 } RawRangeMap;
 
-__kernel void evaluate_seed(const long first_seed, __global const Range* ranges, __global const RawRangeMap* maps, const int maps_count, __global long* result) {
+__kernel void evaluate_seed(const long first_seed, __global const Range* ranges, __global const RawRangeMap* maps, const int maps_count, __global atomic_long* result) {
     int id = get_global_id(0);
+
+    if(id == 0) {
+        atomic_init(result, ~(1 << 63));
+    }
 
     long value = first_seed + id;
 
@@ -85,22 +92,20 @@ __kernel void evaluate_seed(const long first_seed, __global const Range* ranges,
         }
     }
 
-    result[id] = value;
+    atom_min(result, value);
 }
 )";
 
 using kernel_type = cl::compatibility::make_kernel<int, cl::Buffer, cl::Buffer, int, cl::Buffer>;
 
 int64_t calculate_partial_result(cl::Context& context, cl::CommandQueue& queue, kernel_type& kernel, cl::Buffer ranges_buf, cl::Buffer maps_buf, int maps_count, int first_seed, int cnt) {
-    cl::Buffer out_buf(context, CL_MEM_WRITE_ONLY, cnt * sizeof(int64_t));
+    cl::Buffer out_buf(context, CL_MEM_WRITE_ONLY, sizeof(int64_t));
 
-    std::cout << "Running kernel... " << std::flush;
     kernel(cl::EnqueueArgs(queue, cl::NDRange(cnt), cl::NDRange(500)), first_seed, ranges_buf, maps_buf, maps_count, out_buf);
-    std::vector<int64_t> partial_results(cnt);
-    cl::copy(queue, out_buf, partial_results.begin(), partial_results.end());
-    std::cout << "Done! Finding smallest result..." << std::endl;
+    int64_t result;
+    cl::copy(queue, out_buf, &result, &result + 1);
 
-    return *std::min_element(partial_results.cbegin(), partial_results.cend());
+    return result;
 }
 
 int main() {
@@ -155,10 +160,7 @@ int main() {
 
     int64_t result = std::numeric_limits<int64_t>::max();
 
-    std::copy(seeds.cbegin(), seeds.cend(), std::ostream_iterator<int64_t>(std::cout, ", "));
-
     for(int i = 0; i < seeds.size(); i += 2) {
-        std::cout << "Calculating values for seed range " << (i / 2 + 1) << " out of " << seeds.size() / 2 << "..." << std::endl;
         int first_seed = seeds[i];
         int cnt = seeds[i + 1];
         result = std::min(
