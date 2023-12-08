@@ -104,7 +104,7 @@ mod tests {
 
     #[test]
     fn example_part2() {
-        let (directions, map) = parse_input(&EXAPLE_INPUT_2).unwrap();
+        let (directions, map) = parse_input(&EXAPLE_INPUT_3).unwrap();
         assert_eq!(part2(&directions, &map), 6);
     }
 
