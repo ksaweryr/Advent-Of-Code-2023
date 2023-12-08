@@ -3,28 +3,60 @@ use std::{str::FromStr, collections::HashMap};
 use anyhow::Error;
 
 pub fn solve(input: String) {
-    let (directions, nodes) = parse_input(&input).unwrap();
+    let (directions, map) = parse_input(&input).unwrap();
 
-    println!("{}", part1(&directions, &nodes));
+    println!("{}", part1(&directions, &map));
+    println!("{}", part2(&directions, &map));
 }
 
-fn parse_input(input: &str) -> Result<(Vec<char>, Vec<Node>), Error> {
+fn parse_input(input: &str) -> Result<(Vec<char>, HashMap<String, Node>), Error> {
     let mut lines = input.lines();
     let directions = lines.nth(0).ok_or(Error::msg("Invalid input"))?.chars().collect();
     let nodes = lines.skip(1).map(|l| l.parse::<Node>()).collect::<Result<Vec<Node>, _>>()?;
+    let map = nodes.into_iter().map(|n| (n.label.clone(), n)).collect::<HashMap<_, _>>();
 
-    Ok((directions, nodes))
+    Ok((directions, map))
 }
 
-fn part1(directions: &Vec<char>, nodes: &Vec<Node>) -> usize {
-    let map = nodes.iter().map(|n| (n.label.as_ref(), n)).collect::<HashMap<_, _>>();
+fn part1(directions: &Vec<char>, map: &HashMap<String, Node>) -> usize {
+    path_length(directions, map, |s| s == "AAA", |s| s == "ZZZ")
+}
 
-    directions.iter().cycle().scan("AAA", |state, direction| {
-        *state = &map.get(*state).expect(&format!("Invalid node {}", *state)).get_next(*direction).expect("Invalid direction");
-        Some(*state)
+fn part2(directions: &Vec<char>, map: &HashMap<String, Node>) -> usize {
+    map.iter()
+        .filter(|(k, _)| k.ends_with('A')).map(|(_, v)| &v.label)
+        .map(|s| path_length(directions, map, |x| x == s, |x| x.ends_with('Z')))
+        .reduce(|acc, x| lcm(acc, x)).unwrap()
+}
+
+fn path_length<P1, P2>(directions: &Vec<char>, map: &HashMap<String, Node>, start: P1, end: P2) -> usize
+    where P1: Fn(&str) -> bool, P2: Fn(&str) -> bool {
+    
+    let start_node = (*map.keys().find(|x| start(x)).unwrap()).clone();
+    directions.iter().cycle().scan(start_node, |state, direction| {
+        *state = map.get(state).expect(&format!("Invalid node {}", *state)).get_next(*direction).expect("Invalid direction").to_owned();
+        Some(state.clone())
     })
     .enumerate()
-    .find(|(_, n)| *n == "ZZZ").unwrap().0 + 1
+    .find(|(_, n)| end(n)).unwrap().0 + 1
+}
+
+fn gcd(a: usize, b: usize) -> usize {
+    let (a, b) = if a < b {
+        (b, a)
+    } else {
+        (a, b)
+    };
+
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
+}
+
+fn lcm(a: usize, b: usize) -> usize {
+    (a * b) / gcd(a, b)
 }
 
 struct Node {
@@ -60,14 +92,20 @@ mod tests {
 
     #[test]
     fn example1_part1() {
-        let (directions, nodes) = parse_input(&EXAPLE_INPUT_1).unwrap();
-        assert_eq!(part1(&directions, &nodes), 2);
+        let (directions, map) = parse_input(&EXAPLE_INPUT_1).unwrap();
+        assert_eq!(part1(&directions, &map), 2);
     }
 
     #[test]
     fn example2_part1() {
-        let (directions, nodes) = parse_input(&EXAPLE_INPUT_2).unwrap();
-        assert_eq!(part1(&directions, &nodes), 6);
+        let (directions, map) = parse_input(&EXAPLE_INPUT_2).unwrap();
+        assert_eq!(part1(&directions, &map), 6);
+    }
+
+    #[test]
+    fn example_part2() {
+        let (directions, map) = parse_input(&EXAPLE_INPUT_2).unwrap();
+        assert_eq!(part2(&directions, &map), 6);
     }
 
     const EXAPLE_INPUT_1: &str = "RL
@@ -85,4 +123,15 @@ const EXAPLE_INPUT_2: &str = "LLR
 AAA = (BBB, BBB)
 BBB = (AAA, ZZZ)
 ZZZ = (ZZZ, ZZZ)";
+
+const EXAPLE_INPUT_3: &str = "LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)";
 }
