@@ -1,3 +1,7 @@
+#![feature(iter_intersperse)]
+#![feature(iter_repeat_n)]
+
+use std::iter::repeat_n;
 use std::str::FromStr;
 
 use anyhow::Error;
@@ -6,6 +10,7 @@ pub fn solve(input: String) {
     let rows = parse_input(&input);
 
     println!("{}", part1(&rows));
+    println!("{}", part2(&rows));
 }
 
 fn parse_input(input: &str) -> Vec<Row> {
@@ -13,7 +18,49 @@ fn parse_input(input: &str) -> Vec<Row> {
 }
 
 fn part1(rows: &Vec<Row>) -> usize {
-    rows.iter().map(possible_arrangements).sum()
+    // rows.iter().map(possible_arrangements).sum()
+    calculate_answer(rows)
+}
+
+fn part2(rows: &Vec<Row>) -> usize {
+    calculate_answer(&rows.iter().map(Row::unfolded).collect())
+}
+
+fn calculate_answer(rows: &Vec<Row>) -> usize {
+    rows.iter().map(|row| possible_arrangements_dp(row.damaged_record.as_ref(), &row.counts, &mut vec![vec![None; row.damaged_record.len() + 1]; row.counts.len() + 1])).sum()
+}
+
+fn possible_arrangements_dp(record: &str, counts: &[usize], dp: &mut Vec<Vec<Option<usize>>>) -> usize {
+    if counts.len() == 0 {
+        return if record.chars().any(|x| x == '#') {
+            0
+        } else {
+            1
+        };
+    }
+
+    if let None = dp[counts.len()][record.len()] {
+        let n = counts[0];
+        let mut result = 0;
+
+        for i in 0..record.len() - (counts.len() - 1 + &counts[1..].iter().sum()) - n + 1 {
+            if i > 0 && record.chars().nth(i - 1).unwrap() == '#' {
+                break;
+            }
+
+            if let Some('#') = record.chars().nth(i + n) {
+                continue;
+            }
+
+            if record[i..i+n].chars().all(|x| x != '.') {
+                result += possible_arrangements_dp(&record[(i+n+1).min(record.len())..], &counts[1..], dp);
+            }
+        }
+
+        dp[counts.len()][record.len()] = Some(result);
+    }
+
+    dp[counts.len()][record.len()].unwrap()
 }
 
 fn possible_arrangements(row: &Row) -> usize {
@@ -30,6 +77,7 @@ fn is_correct(record: &str, numbers: &Vec<usize>) -> bool {
     record.split('.').map(str::len).filter(|x| x != &0).eq(numbers.iter().map(|x| *x))
 }
 
+#[derive(Debug)]
 struct Row {
     damaged_record: String,
     counts: Vec<usize>
@@ -44,6 +92,15 @@ impl FromStr for Row {
         let counts = numbers.split(',').map(|x| x.parse::<usize>().map_err(Error::new)).collect::<Result<Vec<usize>, _>>()?;
 
         Ok(Row { damaged_record, counts })
+    }
+}
+
+impl Row {
+    fn unfolded(&self) -> Self {
+        let damaged_record = repeat_n(self.damaged_record.clone(), 5).intersperse("?".to_owned()).collect();
+        let counts = self.counts.iter().map(Clone::clone).cycle().take(self.counts.len() * 5).collect::<Vec<usize>>();
+
+        Self { damaged_record, counts }
     }
 }
 
@@ -62,9 +119,20 @@ mod tests {
     }
 
     #[test]
+    fn test_possible_arrangements_dp() {
+        assert_eq!(possible_arrangements_dp("???#.?.#??.?##?????#", &vec![2,3,2,3], &mut vec![vec![None; 21]; 5]), 1);
+    }
+
+    #[test]
     fn example_part1() {
         let rows = parse_input(EXAMPLE_INPUT);
         assert_eq!(part1(&rows), 21);
+    }
+
+    #[test]
+    fn example_part2() {
+        let rows = parse_input(EXAMPLE_INPUT);
+        assert_eq!(part2(&rows), 525152);
     }
 
     const EXAMPLE_INPUT: &str = "???.### 1,1,3
