@@ -44,16 +44,12 @@ fn possible_arrangements_dp(record: &str, counts: &[usize], dp: &mut Vec<Vec<Opt
         let mut result = 0;
 
         for i in 0..record.len() - (counts.len() - 1 + &counts[1..].iter().sum()) - n + 1 {
-            if i > 0 && record.chars().nth(i - 1).unwrap() == '#' {
-                break;
-            }
-
-            if let Some('#') = record.chars().nth(i + n) {
-                continue;
-            }
-
-            if record[i..i+n].chars().all(|x| x != '.') {
+            if record.chars().nth(i + n) != Some('#') && record[i..i+n].chars().all(|x| x != '.') {
                 result += possible_arrangements_dp(&record[(i+n+1).min(record.len())..], &counts[1..], dp);
+            }
+
+            if record.chars().nth(i).unwrap() == '#' {
+                break;
             }
         }
 
@@ -63,6 +59,7 @@ fn possible_arrangements_dp(record: &str, counts: &[usize], dp: &mut Vec<Vec<Opt
     dp[counts.len()][record.len()].unwrap()
 }
 
+#[allow(dead_code)]
 fn possible_arrangements(row: &Row) -> usize {
     let question_marks = row.damaged_record.chars().filter(|c| c == &'?').count() as u32;
     (0..(2usize).pow(question_marks)).map(|i| (0..question_marks).fold(row.damaged_record.clone(), |record, shift| {
