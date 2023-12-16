@@ -4,6 +4,7 @@ pub fn solve(input: String) {
     let contraption = parse_input(&input);
 
     println!("{}", part1(&contraption));
+    println!("{}", part2(&contraption));
 }
 
 fn parse_input(input: &str) -> Contraption {
@@ -13,7 +14,20 @@ fn parse_input(input: &str) -> Contraption {
 }
 
 fn part1(contraption: &Contraption) -> usize {
-    contraption.simulate_beam(Default::default()).len()
+    contraption.simulate_beam(Default::default())
+}
+
+fn part2(contraption: &Contraption) -> usize {
+    let w = contraption.map[0].len();
+    let h = contraption.map.len();
+
+    (0..w).map(|x| contraption.simulate_beam(Beam { position: (x, 0), direction: DOWN })).max().unwrap().max(
+        (0..w).map(|x| contraption.simulate_beam(Beam { position: (x, h - 1), direction: UP })).max().unwrap()
+    ).max(
+        (0..h).map(|y| contraption.simulate_beam(Beam { position: (0, y), direction: RIGHT })).max().unwrap()
+    ).max(
+        (0..h).map(|y| contraption.simulate_beam(Beam { position: (w - 1, y), direction: LEFT })).max().unwrap()
+    )
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -109,24 +123,26 @@ struct Contraption {
 }
 
 impl Contraption {
-    fn simulate_beam(&self, beam: Beam) -> HashSet<(usize, usize)> {
+    fn simulate_beam(&self, beam: Beam) -> usize {
         let w = self.map[0].len();
         let h = self.map.len();
         let mut energized_tiles = HashSet::new();
         let mut visited_states: HashSet<Beam> = HashSet::new();
         let mut beam = beam;
 
-        if self.map[0][0] == '/' || self.map[0][0] == '\\' {
-            beam.mirror(self.map[0][0]);
+        let c = self.map[beam.position.1][beam.position.0];
+
+        if c == '/' || c == '\\' {
+            beam.mirror(c);
         }
 
-        let mut beams: Vec<Beam> = if self.map[0][0] == '|' || self.map[0][0] == '-' {
-            beam.split(self.map[0][0]).unwrap_or(vec![beam])
+        let mut beams: Vec<Beam> = if c == '|' || c == '-' {
+            beam.split(c).unwrap_or(vec![beam])
         } else {
             vec![beam]
         };
 
-        energized_tiles.insert((0, 0));
+        energized_tiles.insert(beam.position);
         visited_states.insert(beam);
 
         while !beams.is_empty() {
@@ -166,7 +182,7 @@ impl Contraption {
             }
         }
 
-        energized_tiles
+        energized_tiles.len()
     }
 }
 
@@ -179,6 +195,13 @@ mod tests {
         let contraption = parse_input(EXAMPLE_INPUT);
 
         assert_eq!(part1(&contraption), 46);
+    }
+
+    #[test]
+    fn example_part2() {
+        let contraption = parse_input(EXAMPLE_INPUT);
+
+        assert_eq!(part2(&contraption), 51);
     }
 
     const EXAMPLE_INPUT: &str = r#".|...\....
