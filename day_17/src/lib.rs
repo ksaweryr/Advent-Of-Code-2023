@@ -3,7 +3,8 @@ use std::{cmp::{Reverse, Ordering}, collections::{BinaryHeap, HashSet}, f32::con
 pub fn solve(input: String) {
     let map = parse_input(&input);
 
-    println!("{}", dijkstra(&map).unwrap());
+    println!("{}", part1(&map).unwrap());
+    println!("{}", part2(&map).unwrap());
 }
 
 fn parse_input(input: &str) -> Vec<Vec<usize>> {
@@ -46,7 +47,7 @@ impl Node {
     }
 }
 
-fn dijkstra(map: &Vec<Vec<usize>>) -> Option<usize> {
+fn part1(map: &Vec<Vec<usize>>) -> Option<usize> {
     let w = map[0].len();
     let h = map.len();
     let mut pq = BinaryHeap::new();
@@ -109,6 +110,71 @@ fn dijkstra(map: &Vec<Vec<usize>>) -> Option<usize> {
     None
 }
 
+fn part2(map: &Vec<Vec<usize>>) -> Option<usize> {
+    let w = map[0].len();
+    let h = map.len();
+    let mut pq = BinaryHeap::new();
+    let mut visited = HashSet::<Node>::new();
+    let starth = Node::new(0, 0, false);
+    let startv = Node::new(0, 0, true);
+    pq.push(Reverse((0, starth)));
+    pq.push(Reverse((0, startv)));
+
+    while !pq.is_empty() {
+        let Reverse((distance, node)) = pq.pop().unwrap();
+
+        if node.x == map[0].len() - 1 && node.y == map.len() - 1 {
+            return Some(distance);
+        }
+
+        if visited.contains(&node) {
+            continue;
+        }
+
+        visited.insert(node);
+
+        for dir in [LEFT, RIGHT, UP, DOWN] {
+            if node.moves_vertically {
+                if dir == UP || dir == DOWN {
+                    continue;
+                }
+            } else if dir == LEFT || dir == RIGHT {
+                continue;
+            }
+
+            let mut delta = 0;
+            for i in 1..11 {
+                let x = match dir {
+                    LEFT => node.x.checked_sub(i),
+                    RIGHT => if node.x + i >= w { None } else { Some(node.x + i) },
+                    _ => Some(node.x)
+                };
+
+                let y = match dir {
+                    UP => node.y.checked_sub(i),
+                    DOWN => if node.y + i >= h { None } else { Some(node.y + i) },
+                    _ => Some(node.y)
+                };
+
+                if x.is_none() || y.is_none() {
+                    break;
+                }
+
+                let x = x.unwrap();
+                let y = y.unwrap();
+
+                delta += map[y][x];
+                
+                if i >= 4 {
+                    pq.push(Reverse((distance + delta, Node::new(x, y, !node.moves_vertically))));
+                }
+            }
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use crate::*;
@@ -117,7 +183,14 @@ mod tests {
     fn example_part1() {
         let map = parse_input(EXAMPLE_INPUT);
 
-        assert_eq!(dijkstra(&map), Some(102));
+        assert_eq!(part1(&map), Some(102));
+    }
+
+    #[test]
+    fn example_part2() {
+        let map = parse_input(EXAMPLE_INPUT);
+
+        assert_eq!(part2(&map), Some(94));
     }
 
     const EXAMPLE_INPUT: &str = "2413432311323
