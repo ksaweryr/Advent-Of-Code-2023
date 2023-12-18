@@ -8,6 +8,7 @@ pub fn solve(input: String) {
     let plan = parse_input(&input);
 
     println!("{}", part1(&plan));
+    println!("{}", part2(&plan));
 }
 
 fn parse_input(input: &str) -> Vec<PlanPart> {
@@ -23,8 +24,19 @@ fn part1(plan: &Vec<PlanPart>) -> isize {
     let vertex_count = vertices.len() as isize;
     let concave_vertices = (vertex_count - 4) / 2;
 
-    shoelace(&vertices) + (concave_vertices * 3 + (vertex_count  - concave_vertices)) / 4 + (boundary_cells - vertex_count) / 2
-    + 2 // IDK where this 2 comes from, but apparently it is needed to get the correct result
+    shoelace(&vertices) + (concave_vertices + (vertex_count - concave_vertices) * 3) / 4 + (boundary_cells - vertex_count) / 2
+}
+
+fn part2(plan: &Vec<PlanPart>) -> isize {
+    let boundary_cells = plan.iter().map(|p| p.rgb.distance()).sum::<isize>();
+    let vertices = plan.iter().scan((0, 0), |state, p| {
+        *state = p.rgb.direction().move_from(state, p.rgb.distance());
+        Some(*state)
+    }).collect::<Vec<(isize, isize)>>();
+    let vertex_count = vertices.len() as isize;
+    let concave_vertices = (vertex_count - 4) / 2;
+
+    shoelace(&vertices) + (concave_vertices + (vertex_count - concave_vertices) * 3) / 4 + (boundary_cells - vertex_count) / 2
 }
 
 fn shoelace(points: &Vec<(isize, isize)>) -> isize {
@@ -83,6 +95,22 @@ struct Colour {
     b: usize
 }
 
+impl Colour {
+    fn distance(&self) -> isize {
+        ((self.r * 256 * 256 + self.g * 256 + self.b) / 16) as isize
+    }
+    
+    fn direction(&self) -> Direction {
+        match self.b % 16 {
+            0 => RIGHT,
+            1 => DOWN,
+            2 => LEFT,
+            3 => UP,
+            _ => panic!("Invalid colour")
+        }
+    }
+}
+
 impl FromStr for Colour {
     type Err = Error;
 
@@ -131,6 +159,12 @@ mod tests {
     fn example_part1() {
         let plan = parse_input(EXAMPLE_INPUT);
         assert_eq!(part1(&plan), 62);
+    }
+
+    #[test]
+    fn example_part2() {
+        let plan = parse_input(EXAMPLE_INPUT);
+        assert_eq!(part2(&plan), 952408144115);
     }
 
     const EXAMPLE_INPUT: &str = "R 6 (#70c710)
