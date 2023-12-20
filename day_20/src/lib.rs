@@ -1,3 +1,5 @@
+#![feature(iter_intersperse)]
+
 use std::{collections::{HashMap, VecDeque}, ops::Neg, str::FromStr};
 
 use anyhow::Error;
@@ -6,6 +8,7 @@ pub fn solve(input: String) {
     let mut circuit = parse_input(&input);
 
     println!("{}", part1(&mut circuit));
+    println!("{}", part2(&circuit));
 }
 
 fn parse_input(input: &str) -> Circuit {
@@ -23,6 +26,45 @@ fn part1(circuit: &mut Circuit) -> usize {
     }
 
     low_pulses * high_pulses
+}
+
+fn part2(circuit: &Circuit) -> usize {
+    // Draw a graph of the input. The whole circuit is just 4 12-bit binary counters connected to a conjunction at the end, which only sends
+    // a 0 to rx if all of the counters reach 0 at the same time. Find the period of each counter, the answer is LCM of those periods.
+    circuit.outputs["broadcaster"].iter().map(|cs| max_counter_value(circuit, &cs, 1, 1))
+        .reduce(lcm)
+        .unwrap()
+}
+
+fn max_counter_value(circuit: &Circuit, node: &str, acc: usize, i: usize) -> usize {
+    let next_node = circuit.outputs[node].iter()
+        .find(|name| if let ModuleType::Conjunction(_) = circuit.modules[*name].module_type { false } else { true } );
+    
+    
+    if let Some(next_node) = next_node {
+        let bit = (circuit.outputs[next_node].len() + 1) % 2;
+        max_counter_value(circuit, next_node, acc + (bit << i), i + 1)
+    } else {
+        acc + (1 << (i - 1))
+    }
+}
+
+fn lcm(a: usize, b: usize) -> usize {
+    (a * b) / gcd(a, b)
+}
+
+fn gcd(a: usize, b: usize) -> usize {
+    let (a, b) = if a < b {
+        (b, a)
+    } else {
+        (a, b)
+    };
+
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -122,6 +164,19 @@ impl Circuit {
         }
 
         (low_pulses, high_pulses)
+    }
+
+    #[allow(unused)]
+    fn mermaid_graph(&self) -> String {
+        "graph LR\n".to_owned() + self.modules.iter().map(|(name, module)| {
+            let def: String = match module.module_type {
+                ModuleType::Broadcaster | ModuleType::Output => format!("{name}[{name}]"),
+                ModuleType::Conjunction(_) => format!("{name}{{{name}}}"),
+                ModuleType::FlipFlop(_) => format!("{name}({name})")
+            } + "\n";
+            let connections: String = self.outputs.get(name).map(|x| x.iter().map(|t| format!("\t{name} --> {t}")).intersperse("\n\t".to_owned()).collect()).unwrap_or("".to_owned());
+            def + &connections
+        }).intersperse("\n".to_owned()).collect::<String>().as_ref()
     }
 }
 
