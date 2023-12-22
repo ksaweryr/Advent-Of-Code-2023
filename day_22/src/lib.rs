@@ -5,21 +5,23 @@ use anyhow::Error;
 pub fn solve(input: String) {
     let bricks = parse_input(&input);
 
-    let (settled, safe_to_disintegrate) = settle(bricks);
+    let result = settle(bricks);
 
-    println!("{}", safe_to_disintegrate);
+    println!("{}", result.0);
+    println!("{}", result.1);
 }
 
 fn parse_input(input: &str) -> Vec<Brick> {
     input.lines().map(|l| l.parse()).collect::<Result<Vec<_>, _>>().expect("Invalid input")
 }
 
-fn settle(mut bricks: Vec<Brick>) -> (Vec<Brick>, usize) {
+fn settle(mut bricks: Vec<Brick>) -> (usize, usize) {
     let max_x = bricks.iter().map(|b| b.1.x).max().unwrap();
     let max_y = bricks.iter().map(|b| b.1.y).max().unwrap();
     let mut brickmap: Vec<Vec<Option<usize>>> = vec![vec![None; max_x + 1]; max_y + 1];
-    let mut result: Vec<Brick> = Vec::new();
+    let mut settled: Vec<Brick> = Vec::new();
     let mut supporting_bricks = HashSet::new();
+    let mut supported_by: Vec<HashSet<usize>> = vec![];
 
     bricks.sort();
 
@@ -27,20 +29,20 @@ fn settle(mut bricks: Vec<Brick>) -> (Vec<Brick>, usize) {
         let new_z = (y1..y2 + 1)
             .flat_map(|y| (x1..x2 + 1)
                 .zip(repeat(y))
-                .map(|(x, y)| brickmap[y][x].map(|idx| result[idx].1.z).unwrap_or(0)))
+                .map(|(x, y)| brickmap[y][x].map(|idx| settled[idx].1.z).unwrap_or(0)))
             .max().unwrap() + 1;
 
         let delta = z1 - new_z;
 
-        result.push(Brick(Cube::new(x1, y1, new_z), Cube::new(x2, y2, z2 - delta)));
+        settled.push(Brick(Cube::new(x1, y1, new_z), Cube::new(x2, y2, z2 - delta)));
 
-        let mut indices = HashSet::new();
+        let mut supporters = HashSet::new();
 
         for y in y1..y2 + 1 {
             for x in x1..x2 + 1 {
                 if let Some(idx) = brickmap[y][x] {
-                    if result[idx].1.z == new_z - 1 {
-                        indices.insert(idx);
+                    if settled[idx].1.z == new_z - 1 {
+                        supporters.insert(idx);
                     }
                 }
 
@@ -48,14 +50,31 @@ fn settle(mut bricks: Vec<Brick>) -> (Vec<Brick>, usize) {
             }
         }
 
-        if indices.len() == 1 {
-            supporting_bricks.insert(indices.into_iter().last().unwrap());
+        if supporters.len() == 1 {
+            supporting_bricks.insert(*supporters.iter().last().unwrap());
         }
+
+        supported_by.push(supporters);
     }
 
-    let safe_to_disintegrate = result.len() - supporting_bricks.len();
+    let safe_to_disintegrate = settled.len() - supporting_bricks.len();
 
-    (result, safe_to_disintegrate)
+    let mut total_part2 = 0;
+
+    for i in 0..settled.len() {
+        let mut deleted = HashSet::new();
+        deleted.insert(i);
+
+        for j in i+1..settled.len() {
+            if supported_by[j].len() != 0 && supported_by[j].is_subset(&deleted) {
+                deleted.insert(j);
+            }
+        }
+
+        total_part2 += deleted.len() - 1;
+    }
+
+    (safe_to_disintegrate, total_part2)
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -107,7 +126,14 @@ mod tests {
     fn example_part1() {
         let bricks = parse_input(EXAMPLE_INPUT);
 
-        assert_eq!(settle(bricks).1, 5);
+        assert_eq!(settle(bricks).0, 5);
+    }
+
+    #[test]
+    fn example_part2() {
+        let bricks = parse_input(EXAMPLE_INPUT);
+
+        assert_eq!(settle(bricks).1, 7);
     }
 
     const EXAMPLE_INPUT: &str = "1,0,1~1,2,1
